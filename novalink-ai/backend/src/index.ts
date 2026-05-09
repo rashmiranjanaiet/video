@@ -54,6 +54,14 @@ const limiter = rateLimit({
 app.use('/api/', limiter)
 
 // Health Check
+app.get('/', (req: Request, res: Response) => {
+  res.json({
+    name: 'NovaLink AI Backend',
+    status: 'ok',
+    health: '/health',
+  })
+})
+
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date() })
 })
