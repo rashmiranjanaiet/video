@@ -1,0 +1,21 @@
+{
+  "name": "novalink-ai",
+  "version": "1.0.0",
+  "description": "AI-powered random video chat platform - NovaLink AI",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\"",
+    "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
+    "start": "npm start --workspace=backend",
+    "docker-up": "docker-compose up -d",
+    "docker-down": "docker-compose down",
+    "lint": "npm run lint --workspace=frontend && npm run lint --workspace=backend"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

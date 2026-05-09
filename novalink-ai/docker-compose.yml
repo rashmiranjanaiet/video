@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: novalink-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - novalink-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: novalink-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - novalink-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: novalink-backend
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: mongodb://admin:admin123@mongodb:27017/novalink
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your_jwt_secret_here
+      PORT: 5000
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./backend/src:/app/src
+    networks:
+      - novalink-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: novalink-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://backend:5000
+      NEXT_PUBLIC_SOCKET_URL: http://backend:5000
+    depends_on:
+      - backend
+    networks:
+      - novalink-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  novalink-network:
+    driver: bridge
