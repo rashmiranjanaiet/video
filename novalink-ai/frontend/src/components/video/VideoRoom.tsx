@@ -26,6 +26,57 @@ interface ChatMessage {
   timestamp: number
 }
 
+type PeerWithConnection = SimplePeer.Instance & {
+  _pc?: RTCPeerConnection
+}
+
+const LOW_LATENCY_VIDEO: MediaTrackConstraints = {
+  width: { ideal: 854, max: 960 },
+  height: { ideal: 480, max: 540 },
+  frameRate: { ideal: 24, max: 30 },
+}
+
+const LOW_LATENCY_AUDIO: MediaTrackConstraints & { latency?: ConstrainDouble } = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: { ideal: 1 },
+  latency: { ideal: 0.01 },
+}
+
+const playNow = (video: HTMLVideoElement | null) => {
+  if (!video) return
+
+  video.play().catch(() => {
+    // Some browsers wait for the next user gesture. The stream is still attached.
+  })
+}
+
+const optimizePeerSenders = (peer: SimplePeer.Instance) => {
+  const connection = (peer as PeerWithConnection)._pc
+  if (!connection) return
+
+  connection.getSenders().forEach((sender) => {
+    const trackKind = sender.track?.kind
+    if (!trackKind || !sender.getParameters || !sender.setParameters) return
+
+    const parameters = sender.getParameters()
+    parameters.encodings = parameters.encodings?.length ? parameters.encodings : [{}]
+
+    parameters.encodings = parameters.encodings.map((encoding) => ({
+      ...encoding,
+      maxBitrate: trackKind === 'video' ? 650_000 : 32_000,
+      maxFramerate: trackKind === 'video' ? 24 : undefined,
+      priority: 'high',
+      networkPriority: 'high',
+    }))
+
+    sender.setParameters(parameters).catch(() => {
+      // Not every browser allows changing sender parameters after creation.
+    })
+  })
+}
+
 export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteUser, onEndCall, onNextCall }) => {
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
@@ -62,6 +113,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
         trickle: true,
         stream,
         config: {
+          bundlePolicy: 'max-bundle',
+          rtcpMuxPolicy: 'require',
+          iceCandidatePoolSize: 4,
           iceServers: [
             { urls: ['stun:stun.l.google.com:19302'] },
             { urls: ['stun:stun1.l.google.com:19302'] },
@@ -70,6 +124,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
       })
 
       peer.on('signal', (data) => {
+        optimizePeerSenders(peer)
         socket?.emit('webrtc-signal', {
           signal: data,
           roomId,
@@ -77,6 +132,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
       })
 
       peer.on('connect', () => {
+        optimizePeerSenders(peer)
         setIsConnected(true)
         setConnectionState('Connected')
       })
@@ -84,6 +140,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
       peer.on('stream', (remoteStream: MediaStream) => {
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream
+          remoteVideoRef.current.muted = false
+          remoteVideoRef.current.volume = 1
+          playNow(remoteVideoRef.current)
         }
       })
 
@@ -102,12 +161,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
     const initializeMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720 },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
+          video: LOW_LATENCY_VIDEO,
+          audio: LOW_LATENCY_AUDIO,
         })
 
         if (!isMounted) {
@@ -119,6 +174,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
 
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream
+          playNow(localVideoRef.current)
         }
 
         setConnectionState('Waiting for partner')
@@ -249,6 +305,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
             ref={remoteVideoRef}
             autoPlay
             playsInline
+            preload="auto"
             className="h-full min-h-screen w-full object-cover"
           />
 
@@ -285,6 +342,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
               autoPlay
               muted
               playsInline
+              preload="auto"
               className="h-full w-full object-cover"
             />
             <div className="absolute bottom-2 left-2 rounded bg-black/60 px-2 py-1 text-xs">You</div>
