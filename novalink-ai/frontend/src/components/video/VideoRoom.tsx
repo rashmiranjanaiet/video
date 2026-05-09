@@ -6,7 +6,7 @@ import SimplePeer from 'simple-peer'
 import { getSocket } from '@lib/socket'
 import { Button } from '@components/common/Button'
 import { useVideoCallStore } from '@store/index'
-import { Mic, MicOff, Video, VideoOff, Phone, Share2 } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, Phone, Shuffle } from 'lucide-react'
 
 interface VideoRoomProps {
   roomId: string
@@ -16,9 +16,10 @@ interface VideoRoomProps {
     username: string
   }
   onEndCall: () => void
+  onNextCall?: () => void
 }
 
-export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteUser, onEndCall }) => {
+export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteUser, onEndCall, onNextCall }) => {
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const remoteVideoRef = useRef<HTMLVideoElement>(null)
   const peerRef = useRef<SimplePeer.Instance | null>(null)
@@ -27,12 +28,53 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
 
   const { isMuted, isVideoEnabled, toggleMute, toggleVideo } = useVideoCallStore()
   const [callDuration, setCallDuration] = useState(0)
+  const [isConnected, setIsConnected] = useState(false)
 
   // Initialize WebRTC
   useEffect(() => {
     let isMounted = true
 
-    const initializeWebRTC = async () => {
+    const createPeer = (stream: MediaStream, shouldInitiate: boolean) => {
+      if (peerRef.current) return
+
+      // Create peer connection only after both matched browsers have camera access.
+      const peer = new SimplePeer({
+        initiator: shouldInitiate,
+        trickle: true,
+        stream,
+        config: {
+          iceServers: [
+            { urls: ['stun:stun.l.google.com:19302'] },
+            { urls: ['stun:stun1.l.google.com:19302'] },
+          ],
+        },
+      })
+
+      peer.on('signal', (data) => {
+        socket?.emit('webrtc-signal', {
+          signal: data,
+          roomId,
+        })
+      })
+
+      peer.on('connect', () => {
+        setIsConnected(true)
+      })
+
+      peer.on('stream', (remoteStream: MediaStream) => {
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream
+        }
+      })
+
+      peer.on('error', (error) => {
+        console.error('WebRTC error:', error)
+      })
+
+      peerRef.current = peer
+    }
+
+    const initializeMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 1280, height: 720 },
@@ -51,38 +93,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
         }
 
         socket?.emit('join-room', roomId)
-
-        // Create peer connection
-        const peer = new SimplePeer({
-          initiator,
-          trickle: true,
-          stream: stream,
-          config: {
-            iceServers: [
-              { urls: ['stun:stun.l.google.com:19302'] },
-              { urls: ['stun:stun1.l.google.com:19302'] },
-            ],
-          },
-        })
-
-        peer.on('signal', (data) => {
-          socket?.emit('webrtc-signal', {
-            signal: data,
-            roomId,
-          })
-        })
-
-        peer.on('stream', (remoteStream: MediaStream) => {
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream
-          }
-        })
-
-        peer.on('error', (error) => {
-          console.error('WebRTC error:', error)
-        })
-
-        peerRef.current = peer
+        socket?.emit('video-ready', roomId)
       } catch (error) {
         console.error('Failed to access media devices:', error)
       }
@@ -96,12 +107,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
       onEndCall()
     }
 
+    const handleStartWebRTC = ({ initiator: serverInitiator }: { initiator: boolean }) => {
+      if (localStreamRef.current) {
+        createPeer(localStreamRef.current, serverInitiator ?? initiator)
+      }
+    }
+
+    socket?.on('start-webrtc', handleStartWebRTC)
     socket?.on('webrtc-signal', handleSignal)
     socket?.on('partner-left', handlePartnerLeft)
-    initializeWebRTC()
+    initializeMedia()
 
     return () => {
       isMounted = false
+      socket?.off('start-webrtc', handleStartWebRTC)
       socket?.off('webrtc-signal', handleSignal)
       socket?.off('partner-left', handlePartnerLeft)
       socket?.emit('leave-room', roomId)
@@ -185,7 +204,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
           className="absolute top-6 left-6 glass rounded-lg px-6 py-3"
         >
           <div className="text-white font-semibold">{remoteUser.username}</div>
-          <div className="text-neon-blue text-sm">{formatDuration(callDuration)}</div>
+          <div className="text-neon-blue text-sm">
+            {isConnected ? formatDuration(callDuration) : 'Connecting...'}
+          </div>
         </motion.div>
 
         {/* Controls */}
@@ -224,8 +245,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({ roomId, initiator, remoteU
             variant="ghost"
             size="lg"
             className="rounded-full w-16 h-16 flex items-center justify-center"
+            onClick={onNextCall || onEndCall}
           >
-            <Share2 className="w-6 h-6 text-white" />
+            <Shuffle className="w-6 h-6 text-white" />
           </Button>
 
           <Button

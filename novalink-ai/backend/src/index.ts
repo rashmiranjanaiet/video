@@ -97,8 +97,14 @@ interface WaitingUser {
   username: string
 }
 
+interface ActiveRoom {
+  members: Set<string>
+  ready: Set<string>
+  initiatorSocketId: string
+}
+
 const waitingUsers: WaitingUser[] = []
-const activeRooms = new Map<string, Set<string>>()
+const activeRooms = new Map<string, ActiveRoom>()
 
 const removeFromQueue = (socketId: string) => {
   const index = waitingUsers.findIndex((user) => user.socketId === socketId)
@@ -108,14 +114,15 @@ const removeFromQueue = (socketId: string) => {
 }
 
 const leaveActiveRooms = (socket: Socket) => {
-  activeRooms.forEach((members, roomId) => {
-    if (!members.has(socket.id)) return
+  activeRooms.forEach((room, roomId) => {
+    if (!room.members.has(socket.id)) return
 
-    members.delete(socket.id)
+    room.members.delete(socket.id)
+    room.ready.delete(socket.id)
     socket.leave(roomId)
     socket.to(roomId).emit('partner-left')
 
-    if (members.size === 0) {
+    if (room.members.size === 0) {
       activeRooms.delete(roomId)
     }
   })
@@ -178,7 +185,11 @@ io.on('connection', (socket: Socket) => {
 
     socket.join(roomId)
     partnerSocket.join(roomId)
-    activeRooms.set(roomId, new Set([socket.id, partnerSocket.id]))
+    activeRooms.set(roomId, {
+      members: new Set([socket.id, partnerSocket.id]),
+      ready: new Set(),
+      initiatorSocketId: partnerSocket.id,
+    })
 
     partnerSocket.emit('random-match-found', {
       roomId,
@@ -210,9 +221,31 @@ io.on('connection', (socket: Socket) => {
   })
 
   socket.on('leave-room', (roomId: string) => {
+    const room = activeRooms.get(roomId)
+    room?.members.delete(socket.id)
+    room?.ready.delete(socket.id)
+
     socket.leave(roomId)
     socket.to(roomId).emit('partner-left')
-    activeRooms.delete(roomId)
+
+    if (!room || room.members.size === 0) {
+      activeRooms.delete(roomId)
+    }
+  })
+
+  socket.on('video-ready', (roomId: string) => {
+    const room = activeRooms.get(roomId)
+    if (!room || !room.members.has(socket.id)) return
+
+    room.ready.add(socket.id)
+
+    if (room.ready.size !== room.members.size || room.members.size < 2) return
+
+    room.members.forEach((socketId) => {
+      io.to(socketId).emit('start-webrtc', {
+        initiator: socketId === room.initiatorSocketId,
+      })
+    })
   })
 
   socket.on('webrtc-signal', (data: { roomId: string; signal: any }) => {

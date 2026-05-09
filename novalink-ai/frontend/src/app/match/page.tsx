@@ -84,6 +84,18 @@ export default function MatchPage() {
     setStatus('idle')
   }, [matchInfo?.roomId])
 
+  const nextCall = useCallback(() => {
+    if (matchInfo?.roomId) {
+      socketRef.current?.emit('leave-room', matchInfo.roomId)
+    }
+
+    setMatchInfo(null)
+    setStatus('waiting')
+    window.setTimeout(() => {
+      socketRef.current?.emit('find-random-match')
+    }, 250)
+  }, [matchInfo?.roomId])
+
   if (status === 'matched' && matchInfo) {
     return (
       <VideoRoom
@@ -91,6 +103,7 @@ export default function MatchPage() {
         initiator={matchInfo.initiator}
         remoteUser={matchInfo.remoteUser}
         onEndCall={endCall}
+        onNextCall={nextCall}
       />
     )
   }
