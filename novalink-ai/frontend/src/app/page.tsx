@@ -60,11 +60,11 @@ export default function Landing() {
             NovaLink AI
           </motion.div>
           <div className="flex items-center gap-6">
-            <Link href="/login" className="text-white hover:text-neon-blue transition">
-              Login
+            <Link href="/match" className="text-white hover:text-neon-blue transition">
+              Random Chat
             </Link>
             <Button asChild variant="primary" size="sm">
-              <Link href="/register">Get Started</Link>
+              <Link href="/match">Start Now</Link>
             </Button>
           </div>
         </div>
@@ -102,10 +102,10 @@ export default function Landing() {
             className="flex flex-col sm:flex-row gap-4 justify-center mb-16"
           >
             <Button asChild size="lg">
-              <Link href="/register">Start Chatting Now</Link>
+              <Link href="/match">Start Chatting Now</Link>
             </Button>
             <Button asChild variant="outline" size="lg">
-              <Link href="#features">Learn More</Link>
+              <Link href="/login">Login Optional</Link>
             </Button>
           </motion.div>
 
@@ -175,7 +175,7 @@ export default function Landing() {
             Join thousands of users connecting through NovaLink AI today.
           </p>
           <Button asChild size="lg">
-            <Link href="/register">Get Started Free</Link>
+            <Link href="/match">Join Random Chat</Link>
           </Button>
         </motion.div>
       </section>

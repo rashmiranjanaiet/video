@@ -9,6 +9,7 @@ import Link from 'next/link'
 
 export default function Dashboard() {
   const { user, logout } = useAuthStore()
+  const displayName = user?.username || 'Guest'
   const [stats, setStats] = useState({
     totalChats: 0,
     onlineFriends: 0,
@@ -30,7 +31,7 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     logout()
-    window.location.href = '/login'
+    window.location.href = '/'
   }
 
   return (
@@ -42,18 +43,26 @@ export default function Dashboard() {
             NovaLink AI
           </h1>
           <div className="flex items-center gap-4">
-            <Link href="/profile" className="flex items-center gap-2 text-gray-300 hover:text-white">
-              <User className="w-5 h-5" />
-              Profile
-            </Link>
-            <Link href="/settings" className="flex items-center gap-2 text-gray-300 hover:text-white">
-              <Settings className="w-5 h-5" />
-              Settings
-            </Link>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            {user ? (
+              <>
+                <Link href="/profile" className="flex items-center gap-2 text-gray-300 hover:text-white">
+                  <User className="w-5 h-5" />
+                  Profile
+                </Link>
+                <Link href="/settings" className="flex items-center gap-2 text-gray-300 hover:text-white">
+                  <Settings className="w-5 h-5" />
+                  Settings
+                </Link>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/login">Login Optional</Link>
+              </Button>
+            )}
           </div>
         </div>
       </nav>
@@ -67,9 +76,9 @@ export default function Dashboard() {
           className="mb-12"
         >
           <h2 className="text-4xl font-bold text-white mb-2">
-            Welcome back, {user?.username}! 👋
+            Welcome, {displayName}
           </h2>
-          <p className="text-gray-400">Ready to meet amazing people today?</p>
+          <p className="text-gray-400">Ready to meet amazing people today? No account required.</p>
         </motion.div>
 
         {/* Stats Grid */}

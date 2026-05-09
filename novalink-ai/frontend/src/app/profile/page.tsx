@@ -10,10 +10,22 @@ import { Users, MessageSquare, Video, Settings, LogOut, Trophy, Zap } from 'luci
 export default function Profile() {
   const { user, logout } = useAuthStore()
   const [profile, setProfile] = useState(user)
+  const displayProfile = profile || {
+    username: 'Guest',
+    bio: 'Create an account later if you want to save your profile and stats.',
+    level: 1,
+    xp: 0,
+    badges: ['guest'],
+    stats: {
+      totalChats: 0,
+      totalMinutes: 0,
+      avgRating: 5,
+    },
+  }
 
   const handleLogout = () => {
     logout()
-    window.location.href = '/login'
+    window.location.href = '/'
   }
 
   return (
@@ -24,10 +36,16 @@ export default function Profile() {
           <Link href="/dashboard" className="text-2xl font-bold bg-gradient-neon bg-clip-text text-transparent">
             NovaLink AI
           </Link>
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
+          {user ? (
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          ) : (
+            <Button asChild variant="outline" size="sm">
+              <Link href="/login">Login Optional</Link>
+            </Button>
+          )}
         </div>
       </nav>
 
@@ -44,19 +62,19 @@ export default function Profile() {
               whileHover={{ scale: 1.05 }}
               className="w-24 h-24 bg-gradient-neon rounded-full flex items-center justify-center"
             >
-              <span className="text-3xl font-bold text-white">{profile?.username?.[0]?.toUpperCase()}</span>
+              <span className="text-3xl font-bold text-white">{displayProfile.username[0].toUpperCase()}</span>
             </motion.div>
             <div className="flex-1">
-              <h1 className="text-4xl font-bold text-white mb-2">{profile?.username}</h1>
-              <p className="text-gray-400 mb-4">{profile?.bio || 'No bio added yet'}</p>
+              <h1 className="text-4xl font-bold text-white mb-2">{displayProfile.username}</h1>
+              <p className="text-gray-400 mb-4">{displayProfile.bio || 'No bio added yet'}</p>
               <div className="flex gap-4">
                 <div className="flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-neon-blue" />
-                  <span className="text-white">Level {profile?.level}</span>
+                  <span className="text-white">Level {displayProfile.level}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Zap className="w-5 h-5 text-neon-blue" />
-                  <span className="text-white">{profile?.xp} XP</span>
+                  <span className="text-white">{displayProfile.xp} XP</span>
                 </div>
               </div>
             </div>
@@ -77,9 +95,9 @@ export default function Profile() {
           className="grid md:grid-cols-3 gap-6 mb-12"
         >
           {[
-            { icon: Video, label: 'Total Chats', value: profile?.stats?.totalChats || 0 },
-            { icon: MessageSquare, label: 'Total Minutes', value: profile?.stats?.totalMinutes || 0 },
-            { icon: Trophy, label: 'Avg Rating', value: profile?.stats?.avgRating?.toFixed(1) || '5.0' },
+            { icon: Video, label: 'Total Chats', value: displayProfile.stats?.totalChats || 0 },
+            { icon: MessageSquare, label: 'Total Minutes', value: displayProfile.stats?.totalMinutes || 0 },
+            { icon: Trophy, label: 'Avg Rating', value: displayProfile.stats?.avgRating?.toFixed(1) || '5.0' },
           ].map((stat, index) => (
             <motion.div
               key={index}
@@ -104,7 +122,7 @@ export default function Profile() {
         >
           <h2 className="text-2xl font-bold text-white mb-6">Achievements</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {(profile?.badges || ['verified', 'early_adopter']).map((badge, index) => (
+            {(displayProfile.badges || ['guest']).map((badge, index) => (
               <motion.div
                 key={index}
                 whileHover={{ scale: 1.05 }}
