@@ -10,6 +10,7 @@ NovaLink uses two Render web services:
 Use these settings if you create it manually:
 
 - Root directory: repo root
+- If deploying from the `rashmiranjanaiet/video` repo, set Root Directory to `novalink-ai`
 - Build command: `npm ci && npm run build --workspace=backend`
 - Start command: `npm start --workspace=backend`
 
@@ -27,6 +28,7 @@ Environment variables:
 Use these settings if you create it manually:
 
 - Root directory: repo root
+- If deploying from the `rashmiranjanaiet/video` repo, set Root Directory to `novalink-ai`
 - Build command: `npm ci && npm run build --workspace=frontend`
 - Start command: `npm start --workspace=frontend`
 
